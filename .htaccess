@@ -1,0 +1,48 @@
+# ══════════════════════════════════════════════
+# Instant d'envie — Apache Security Headers
+# À activer avant tout déploiement en production
+# ══════════════════════════════════════════════
+
+<IfModule mod_headers.c>
+  # Anti-clickjacking (complément de frame-ancestors dans la CSP meta)
+  Header always set X-Frame-Options "SAMEORIGIN"
+
+  # Empêche le MIME-sniffing (attaques content-type confusion)
+  Header always set X-Content-Type-Options "nosniff"
+
+  # Politique de référent stricte
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # Restreint l'accès aux API sensibles du navigateur
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(self)"
+
+  # Supprime la signature du serveur (ne pas révéler Apache + version)
+  Header always unset X-Powered-By
+  Header always unset Server
+</IfModule>
+
+# Supprime la version d'Apache dans les réponses
+ServerTokens Prod
+ServerSignature Off
+
+# ── HTTPS (activer en production avec un vrai certificat SSL) ──
+# <IfModule mod_rewrite.c>
+#   RewriteEngine On
+#   RewriteCond %{HTTPS} off
+#   RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# </IfModule>
+
+# ── HSTS (activer après validation HTTPS) ──
+# Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+# ── Cache statique pour les assets ──
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css                  "access plus 1 month"
+  ExpiresByType application/javascript    "access plus 1 month"
+  ExpiresByType image/jpeg                "access plus 6 months"
+  ExpiresByType image/png                 "access plus 6 months"
+  ExpiresByType image/webp                "access plus 6 months"
+  ExpiresByType image/svg+xml             "access plus 6 months"
+  ExpiresByType font/woff2                "access plus 1 year"
+</IfModule>

@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Paiement — Instant d'envie</title>
+
+  <!--
+    ✅ SÉCURITÉ : Content Security Policy stricte
+    ─────────────────────────────────────────────────────────────
+    Cette CSP est la principale défense contre un compromis de CDN.
+    Elle autorise explicitement UNIQUEMENT :
+      • script-src  → notre code + https://js.stripe.com (domaine officiel Stripe)
+      • frame-src   → https://js.stripe.com (iframe Stripe Elements)
+      • connect-src → https://api.stripe.com (appels API de tokenisation)
+    Tout autre domaine est bloqué par le navigateur.
+    ─────────────────────────────────────────────────────────────
+  -->
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self';
+             script-src 'self' https://js.stripe.com;
+             style-src 'self' https://fonts.googleapis.com;
+             font-src 'self' https://fonts.gstatic.com;
+             img-src 'self' data:;
+             frame-src https://js.stripe.com;
+             connect-src 'self' https://api.stripe.com;
+             object-src 'none';
+             base-uri 'self';
+             frame-ancestors 'self';" />
+
+  <!-- ✅ SÉCURITÉ : Politique de référent stricte -->
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+  <meta name="description" content="Finalisez votre commande en ligne chez Instant d'envie." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="style.css" />
+
+  <!--
+    ✅ SÉCURITÉ — Stripe.js : pourquoi pas d'attribut integrity="sha384-..." ?
+    ──────────────────────────────────────────────────────────────────────────
+    SRI (Subresource Integrity) n'est PAS compatible avec Stripe.js. Stripe
+    l'indique explicitement dans sa documentation PCI DSS niveau 1 :
+
+      • Stripe met à jour js.stripe.com/v3/ en continu pour corriger des
+        vulnérabilités de sécurité sans préavis. Un hash SRI figé CASSERAIT
+        le formulaire de paiement à chaque mise à jour.
+
+      • La mitigation correcte est la CSP ci-dessus, qui restreint les scripts
+        autorisés à 'self' et https://js.stripe.com uniquement.
+
+    Ref : https://stripe.com/docs/security/guide#content-security-policy
+    ──────────────────────────────────────────────────────────────────────────
+    Les données de carte bancaire sont saisies dans un <iframe> hébergé par
+    Stripe. Elles ne transitent JAMAIS par nos serveurs (conformité PCI DSS).
+  -->
+  <script src="https://js.stripe.com/v3/" async></script>
+</head>
+<body>
+
+  <a href="#main-content" class="skip-nav">Passer au contenu principal</a>
+
+  <!-- ══════════════════════════════════════════════
+       EN-TÊTE
+  ══════════════════════════════════════════════ -->
+  <header class="site-header">
+    <div class="container header-row">
+      <a class="brand" href="index.html" aria-label="Retour à l'accueil — Instant d'envie">
+        <img src="image/logo_ie.png" alt="Logo Instant d'envie" class="brand-logo" />
+      </a>
+      <nav class="main-nav" aria-label="Navigation principale">
+        <ul>
+          <li><a href="index.html#hero">Accueil</a></li>
+          <li><a href="index.html#specialites">Spécialités</a></li>
+          <li><a href="index.html#apropos">À propos</a></li>
+          <li><a href="index.html#contact">Contact</a></li>
+        </ul>
+        <a class="btn btn-outline" href="index.html#specialites">← Boutique</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════
+       CONTENU PRINCIPAL
+  ══════════════════════════════════════════════ -->
+  <main class="section" id="main-content">
+    <div class="container">
+
+      <nav class="pay-breadcrumb" aria-label="Fil d'Ariane">
+        <a href="index.html">Accueil</a>
+        <span aria-hidden="true"> › </span>
+        <a href="index.html#specialites">Boutique</a>
+        <span aria-hidden="true"> › </span>
+        <span aria-current="page">Paiement</span>
+      </nav>
+
+      <h2 class="pay-title">Finaliser ma commande</h2>
+
+      <!--
+        ✅ SÉCURITÉ : Le formulaire englobe tous les champs.
+        novalidate = on gère la validation nous-mêmes en JS pour afficher
+        de meilleurs messages d'erreur en français.
+      -->
+      <form class="pay-grid" id="order-form" novalidate aria-label="Formulaire de commande">
+
+        <!-- ──────────────────────────────────────────────
+             COLONNE GAUCHE : formulaire de commande
+        ────────────────────────────────────────────── -->
+        <section class="pay-form-section" aria-label="Détails de la commande">
+
+          <!-- ÉTAPE 1 : Mode de retrait -->
+          <div class="pay-block">
+            <div class="pay-block-header">
+              <span class="pay-step" aria-hidden="true">1</span>
+              <h3>Mode de retrait</h3>
+            </div>
+
+            <fieldset class="pay-radio-group fieldset-reset">
+              <legend class="sr-only">Choisir le mode de retrait</legend>
+
+              <label class="pay-radio">
+                <input type="radio" name="retrait" value="click-collect" checked
+                       aria-describedby="cc-desc" />
+                <div class="pay-radio-card">
+                  <strong>🥐 Click &amp; Collect</strong>
+                  <p id="cc-desc">Retrait en boutique · 49 Av. Charles Rouxel, Pontault-Combault</p>
+                  <span class="tag">Gratuit · Disponible aujourd'hui avant 14h</span>
+                </div>
+              </label>
+
+              <label class="pay-radio">
+                <input type="radio" name="retrait" value="livraison"
+                       aria-describedby="liv-desc" />
+                <div class="pay-radio-card">
+                  <strong>🚴 Livraison à domicile</strong>
+                  <p id="liv-desc">Livraison sous 2h dans un rayon de 10 km</p>
+                  <span class="tag">+ 3,90 €</span>
+                </div>
+              </label>
+            </fieldset>
+
+            <!-- Champs adresse (affichés uniquement en mode livraison) -->
+            <div id="livraison-fields" class="pay-livraison-fields" aria-hidden="true">
+              <label for="adresse">Adresse <span aria-hidden="true" class="required-star">*</span></label>
+              <input id="adresse" name="adresse" type="text"
+                     placeholder="10 rue des Lilas"
+                     autocomplete="street-address" />
+
+              <div class="pay-row">
+                <div>
+                  <label for="cp">Code postal <span aria-hidden="true" class="required-star">*</span></label>
+                  <input id="cp" name="cp" type="text"
+                         placeholder="77340"
+                         autocomplete="postal-code"
+                         inputmode="numeric" maxlength="5"
+                         pattern="[0-9]{5}" />
+                </div>
+                <div>
+                  <label for="ville">Ville <span aria-hidden="true" class="required-star">*</span></label>
+                  <input id="ville" name="ville" type="text"
+                         placeholder="Pontault-Combault"
+                         autocomplete="address-level2" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ÉTAPE 2 : Coordonnées -->
+          <div class="pay-block">
+            <div class="pay-block-header">
+              <span class="pay-step" aria-hidden="true">2</span>
+              <h3>Vos coordonnées</h3>
+            </div>
+
+            <div class="pay-row">
+              <div>
+                <label for="prenom">Prénom <span aria-hidden="true" class="required-star">*</span></label>
+                <input id="prenom" name="prenom" type="text"
+                       placeholder="Marie"
+                       required autocomplete="given-name"
+                       aria-required="true" />
+              </div>
+              <div>
+                <label for="nom">Nom <span aria-hidden="true" class="required-star">*</span></label>
+                <input id="nom" name="nom" type="text"
+                       placeholder="Dupont"
+                       required autocomplete="family-name"
+                       aria-required="true" />
+              </div>
+            </div>
+
+            <label for="email">E-mail <span aria-hidden="true" class="required-star">*</span></label>
+            <input id="email" name="email" type="email"
+                   placeholder="marie@exemple.fr"
+                   required autocomplete="email"
+                   aria-required="true" />
+
+            <label for="tel">Téléphone <span aria-hidden="true" class="required-star">*</span></label>
+            <input id="tel" name="tel" type="tel"
+                   placeholder="06 12 34 56 78"
+                   required autocomplete="tel"
+                   aria-required="true" />
+
+            <label for="creno">Créneau souhaité <span aria-hidden="true" class="required-star">*</span></label>
+            <select id="creno" name="creno" required aria-required="true">
+              <option value="">— Choisir un créneau —</option>
+              <option value="9-10">Aujourd'hui · 9h–10h</option>
+              <option value="10-11">Aujourd'hui · 10h–11h</option>
+              <option value="11-12">Aujourd'hui · 11h–12h</option>
+              <option value="12-13">Aujourd'hui · 12h–13h</option>
+              <option value="13-14">Aujourd'hui · 13h–14h</option>
+            </select>
+
+            <label for="note">Note pour la commande (optionnel)</label>
+            <textarea id="note" name="note" rows="3"
+                      placeholder="Allergie, demande spéciale…"
+                      maxlength="500"></textarea>
+          </div>
+
+          <!-- ÉTAPE 3 : Paiement sécurisé via Stripe -->
+          <div class="pay-block">
+            <div class="pay-block-header">
+              <span class="pay-step" aria-hidden="true">3</span>
+              <h3>Paiement sécurisé</h3>
+            </div>
+
+            <div class="pay-card-logos">
+              <span class="card-logo">VISA</span>
+              <span class="card-logo">Mastercard</span>
+              <span class="card-logo">CB</span>
+              <span class="card-logo">Apple Pay</span>
+              <span class="pay-secure">🔒 Stripe · SSL</span>
+            </div>
+
+            <!--
+              ✅ SÉCURITÉ — STRIPE ELEMENTS
+              ─────────────────────────────────────────────────
+              Cet élément est remplacé par un <iframe> hébergé sur stripe.com.
+              Le numéro de carte, CVV et date d'expiration sont saisis directement
+              chez Stripe et CHIFFRÉS à la source — jamais visibles par nos serveurs.
+
+              ⚠️  Pour activer les paiements réels :
+                1. Créez un compte sur https://dashboard.stripe.com
+                2. Remplacez 'pk_test_VOTRE_CLE_ICI' par votre clé publique (pk_live_...)
+                3. Ajoutez un backend (Node.js, PHP…) pour créer le PaymentIntent
+                   et retourner le client_secret (voir commentaires dans le JS ci-dessous).
+              ─────────────────────────────────────────────────
+            -->
+            <div id="stripe-card-element" class="stripe-element"
+                 aria-label="Saisie sécurisée des informations de carte bancaire (Stripe)">
+              <!-- Stripe Elements monte son iframe ici -->
+            </div>
+            <!-- Zone d'erreur Stripe (aria-live pour les lecteurs d'écran) -->
+            <div id="stripe-error" class="pay-error" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+            <div class="pay-stripe-info">
+              <p>🔒 Vos données bancaires sont chiffrées et traitées par <strong>Stripe</strong>, certifié <strong>PCI DSS niveau 1</strong>. Nous n'avons jamais accès à vos informations de carte.</p>
+            </div>
+          </div>
+
+          <!-- CGV + Notice RGPD -->
+          <div class="pay-block pay-block-light">
+            <label class="pay-checkbox" for="cgv-accept">
+              <input type="checkbox" id="cgv-accept" name="cgv" required aria-required="true" />
+              <span>J'accepte les <a href="cgv.html" target="_blank" rel="noopener noreferrer">conditions générales de vente</a>
+              et la <a href="politique-confidentialite.html" target="_blank" rel="noopener noreferrer">politique de confidentialité</a>.</span>
+            </label>
+            <div class="pay-rgpd-notice" role="note">
+              <span aria-hidden="true">🔒</span>
+              <span>Vos données personnelles sont traitées par la boulangerie Instant d'envie exclusivement pour le traitement de votre commande, conformément à notre <a href="politique-confidentialite.html" target="_blank" rel="noopener noreferrer">politique de confidentialité</a>. Elles ne sont jamais revendues à des tiers.</span>
+            </div>
+          </div>
+
+          <!-- Message d'erreur formulaire -->
+          <div id="form-error" class="pay-error" role="alert" aria-live="assertive"></div>
+
+          <!-- Message mode démo -->
+          <div id="demo-msg" class="pay-stripe-info" role="status">
+            <p>✅ <strong>Mode démo actif.</strong> L'intégration Stripe est prête. Ajoutez votre clé publique et un backend pour activer les paiements réels.<br>Carte de test : <code>4242 4242 4242 4242</code> · 12/28 · CVV 123</p>
+          </div>
+
+          <!-- Bouton de validation -->
+          <button class="btn pay-submit" type="submit" id="submit-btn" disabled aria-disabled="true">
+            <span id="submit-text">🔒 Confirmer &amp; payer</span>
+            <span id="submit-spinner" class="spinner" aria-hidden="true"></span>
+          </button>
+          <p class="pay-mention">
+            Vous recevrez une confirmation par e-mail après votre paiement.
+          </p>
+        </section>
+
+        <!-- ──────────────────────────────────────────────
+             COLONNE DROITE : récapitulatif de commande
+        ────────────────────────────────────────────── -->
+        <aside class="pay-summary" aria-label="Récapitulatif de commande">
+          <h3>Récapitulatif</h3>
+
+          <!-- Rempli dynamiquement via DOM API (pas innerHTML) -->
+          <ul class="pay-items" id="pay-items-list" aria-label="Articles commandés">
+            <li><em>Chargement…</em></li>
+          </ul>
+
+          <div class="pay-coupon">
+            <input id="coupon-input" type="text"
+                   placeholder="Code promo"
+                   autocomplete="off"
+                   aria-label="Code de réduction"
+                   maxlength="20" />
+            <button type="button" class="btn btn-outline" id="coupon-btn">Appliquer</button>
+          </div>
+          <div id="coupon-msg" role="status" aria-live="polite"></div>
+
+          <div class="pay-totals">
+            <div class="pay-total-row">
+              <span>Sous-total</span>
+              <span id="pay-subtotal">–</span>
+            </div>
+            <div class="pay-total-row" id="pay-livraison-row">
+              <span>Livraison</span>
+              <span>3,90 €</span>
+            </div>
+            <div class="pay-total-row" id="pay-discount-row">
+              <span>Réduction</span>
+              <span id="pay-discount-val" class="discount-val">–</span>
+            </div>
+            <div class="pay-total-row pay-total-final">
+              <span>Total TTC</span>
+              <span id="pay-total">–</span>
+            </div>
+          </div>
+
+          <div class="pay-guarantee">
+            <p>🥐 Produits frais du jour</p>
+            <p>🔒 Paiement sécurisé Stripe</p>
+            <p>♻️ Emballages recyclables</p>
+          </div>
+        </aside>
+
+      </form>
+    </div>
+  </main>
+
+  <!-- ══════════════════════════════════════════════
+       PIED DE PAGE
+  ══════════════════════════════════════════════ -->
+  <footer class="site-footer">
+    <div class="container footer-row">
+      <small>© <span id="year"></span> Boulangerie Instant d'envie — Tous droits réservés.</small>
+      <nav aria-label="Liens légaux">
+        <a href="mentions-legales.html">Mentions légales</a> ·
+        <a href="politique-confidentialite.html">Confidentialité</a> ·
+        <a href="index.html#contact">Allergènes</a>
+      </nav>
+    </div>
+  </footer>
+
+  <!-- ══════════════════════════════════════════════
+       JAVASCRIPT
+  ══════════════════════════════════════════════ -->
+  <script src="paiement.js"></script>
+
+</body>
+</html>
